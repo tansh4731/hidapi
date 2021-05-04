@@ -115,6 +115,7 @@ static struct hid_api_version api_version = {
 	typedef BOOLEAN (__stdcall *HidD_GetManufacturerString_)(HANDLE handle, PVOID buffer, ULONG buffer_len);
 	typedef BOOLEAN (__stdcall *HidD_GetProductString_)(HANDLE handle, PVOID buffer, ULONG buffer_len);
 	typedef BOOLEAN (__stdcall *HidD_SetFeature_)(HANDLE handle, PVOID data, ULONG length);
+	typedef BOOLEAN (__stdcall *HidD_SetOutputReport_)(HANDLE handle, PVOID data, ULONG length);
 	typedef BOOLEAN (__stdcall *HidD_GetFeature_)(HANDLE handle, PVOID data, ULONG length);
 	typedef BOOLEAN (__stdcall *HidD_GetInputReport_)(HANDLE handle, PVOID data, ULONG length);
 	typedef BOOLEAN (__stdcall *HidD_GetIndexedString_)(HANDLE handle, ULONG string_index, PVOID buffer, ULONG buffer_len);
@@ -128,6 +129,7 @@ static struct hid_api_version api_version = {
 	static HidD_GetManufacturerString_ HidD_GetManufacturerString;
 	static HidD_GetProductString_ HidD_GetProductString;
 	static HidD_SetFeature_ HidD_SetFeature;
+	static HidD_SetOutputReport_ HidD_SetOutputReport;
 	static HidD_GetFeature_ HidD_GetFeature;
 	static HidD_GetInputReport_ HidD_GetInputReport;
 	static HidD_GetIndexedString_ HidD_GetIndexedString;
@@ -235,6 +237,7 @@ static int lookup_functions()
 		RESOLVE(HidD_GetManufacturerString);
 		RESOLVE(HidD_GetProductString);
 		RESOLVE(HidD_SetFeature);
+		RESOLVE(HidD_SetOutputReport);
 		RESOLVE(HidD_GetFeature);
 		RESOLVE(HidD_GetInputReport);
 		RESOLVE(HidD_GetIndexedString);
@@ -256,6 +259,7 @@ static int lookup_functions()
 
 static HANDLE open_device(const char *path, BOOL open_rw)
 {
+	printf("open_device: path = %s, open_rw = %d\r\n", path, open_rw);
 	HANDLE handle;
 	DWORD desired_access = (open_rw)? (GENERIC_WRITE | GENERIC_READ): 0;
 	DWORD share_mode = FILE_SHARE_READ|FILE_SHARE_WRITE;
@@ -267,6 +271,10 @@ static HANDLE open_device(const char *path, BOOL open_rw)
 		OPEN_EXISTING,
 		FILE_FLAG_OVERLAPPED,/*FILE_ATTRIBUTE_NORMAL,*/
 		0);
+
+	if (handle == INVALID_HANDLE_VALUE) {
+		printf("open_device CreateFileA failed: err = %d\r\n", GetLastError());
+	}
 
 	return handle;
 }
@@ -836,6 +844,19 @@ int HID_API_EXPORT HID_API_CALL hid_send_feature_report(hid_device *dev, const u
 	return (int) length;
 }
 
+int HID_API_EXPORT HID_API_CALL hid_set_output_report(hid_device *dev, const unsigned char *data, size_t length)
+{
+	BOOL res = FALSE;
+
+	res = HidD_SetOutputReport(dev->device_handle, (PVOID)data, (DWORD)length);
+
+	if (!res) {
+		register_error(dev, "HidD_SetOutputReport");
+		return -1;
+	}
+
+	return (int)length;
+}
 
 int HID_API_EXPORT HID_API_CALL hid_get_feature_report(hid_device *dev, unsigned char *data, size_t length)
 {
